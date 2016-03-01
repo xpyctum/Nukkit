@@ -96,7 +96,7 @@ public abstract class Generator {
         return noiseArray;
     }
 
-    public static double[][] getFastNoise2D(Noise noise, int xSize, int zSize, int samplingRate, int x, int y, int z) {
+    public static double[][] getFastNoise2D(Noise noise, int xSize, int zSize, int samplingRate, int x, int y, int z, int xZoom, int zZoom) {
         if (samplingRate == 0) {
             throw new IllegalArgumentException("samplingRate cannot be 0");
         }
@@ -112,7 +112,7 @@ public abstract class Generator {
         for (int xx = 0; xx <= xSize; xx += samplingRate) {
             noiseArray[xx] = new double[zSize + 1];
             for (int zz = 0; zz <= zSize; zz += samplingRate) {
-                noiseArray[xx][zz] = noise.noise3D(x + xx, y, z + zz);
+                noiseArray[xx][zz] = noise.noise3D((x + xx) >> xZoom, y, (z + zz) >> zZoom);
             }
         }
 
@@ -134,6 +134,10 @@ public abstract class Generator {
             }
         }
         return noiseArray;
+    }
+
+    public static double[][] getFastNoise2D(Noise noise, int xSize, int zSize, int samplingRate, int x, int y, int z) {
+        return Generator.getFastNoise2D(noise, xSize, zSize, samplingRate, x, y, z, 0, 0);
     }
 
     public static double[][][] getFastNoise3D(Noise noise, int xSize, int ySize, int zSize, int xSamplingRate, int ySamplingRate, int zSamplingRate, int x, int y, int z) {
@@ -177,18 +181,18 @@ public abstract class Generator {
                         int nny = ny + ySamplingRate;
                         int nnz = nz + zSamplingRate;
 
-                        int dx1 = ((nnx - xx) / (nnx - nx));
-                        int dx2 = ((xx - nx) / (nnx - nx));
-                        int dy1 = ((nny - yy) / (nny - ny));
-                        int dy2 = ((yy - ny) / (nny - ny));
+                        double dx1 = ((double) (nnx - xx) / (double) (nnx - nx));
+                        double dx2 = ((double) (xx - nx) / (double) (nnx - nx));
+                        double dy1 = ((double) (nny - yy) / (double) (nny - ny));
+                        double dy2 = ((double) (yy - ny) / (double) (nny - ny));
 
-                        noiseArray[xx][zz][yy] = ((nnz - zz) / (nnz - nz)) * (
+                        noiseArray[xx][zz][yy] = ((double) (nnz - zz) / (double) (nnz - nz)) * (
                                 dy1 * (
                                         dx1 * noiseArray[nx][nz][ny] + dx2 * noiseArray[nnx][nz][ny]
                                 ) + dy2 * (
                                         dx1 * noiseArray[nx][nz][nny] + dx2 * noiseArray[nnx][nz][nny]
                                 )
-                        ) + ((zz - nz) / (nnz - nz)) * (
+                        ) + ((double) (zz - nz) / (double) (nnz - nz)) * (
                                 dy1 * (
                                         dx1 * noiseArray[nx][nnz][ny] + dx2 * noiseArray[nnx][nnz][ny]
                                 ) + dy2 * (

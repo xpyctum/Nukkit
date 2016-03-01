@@ -78,8 +78,6 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
         this.namedTag.putShort("Health", this.getHealth());
     }
 
-    public abstract String getName();
-
     public boolean hasLineOfSight(Entity entity) {
         //todo
         return true;
@@ -192,10 +190,10 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
 
             if (!this.hasEffect(Effect.WATER_BREATHING) && this.isInsideOfWater()) {
                 if (this instanceof EntityWaterAnimal) {
-                    this.setDataProperty(DATA_AIR, new ShortEntityData(300));
+                    this.setDataProperty(new ShortEntityData(DATA_AIR, 300));
                 } else {
                     hasUpdate = true;
-                    int airTicks = this.getDataPropertyShort(DATA_AIR).data - tickDiff;
+                    int airTicks = this.getDataPropertyShort(DATA_AIR) - tickDiff;
 
                     if (airTicks <= -20) {
                         airTicks = 0;
@@ -203,12 +201,12 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
                         this.attack(ev);
                     }
 
-                    this.setDataProperty(DATA_AIR, new ShortEntityData(airTicks));
+                    this.setDataProperty(new ShortEntityData(DATA_AIR, airTicks));
                 }
             } else {
                 if (this instanceof EntityWaterAnimal) {
                     hasUpdate = true;
-                    int airTicks = this.getDataPropertyInt(DATA_AIR).data - tickDiff;
+                    int airTicks = this.getDataPropertyInt(DATA_AIR) - tickDiff;
 
                     if (airTicks <= -20) {
                         airTicks = 0;
@@ -216,9 +214,9 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
                         this.attack(ev);
                     }
 
-                    this.setDataProperty(DATA_AIR, new ShortEntityData(airTicks));
+                    this.setDataProperty(new ShortEntityData(DATA_AIR, airTicks));
                 } else {
-                    this.setDataProperty(DATA_AIR, new ShortEntityData(300));
+                    this.setDataProperty(new ShortEntityData(DATA_AIR, 300));
                 }
             }
         }
@@ -277,6 +275,24 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
         }
 
         return blocks.stream().toArray(Block[]::new);
+    }
+
+    public Block getTargetBlock(int maxDistance) {
+        return getTargetBlock(maxDistance, new HashMap<Integer, Object>());
+    }
+
+    public Block getTargetBlock(int maxDistance, Map<Integer, Object> transparent) {
+        try {
+            Block[] blocks = this.getLineOfSight(maxDistance, 1, transparent);
+            Block block = blocks[0];
+            if (block instanceof Block) {
+                return block;
+            }
+        } catch (Exception e) {
+
+        }
+
+        return null;
     }
 
     public void setMovementSpeed(float speed) {

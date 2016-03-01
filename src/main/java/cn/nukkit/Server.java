@@ -1,14 +1,17 @@
 package cn.nukkit;
 
 import cn.nukkit.block.Block;
+import cn.nukkit.blockentity.*;
 import cn.nukkit.command.*;
 import cn.nukkit.entity.Attribute;
 import cn.nukkit.entity.Entity;
 import cn.nukkit.entity.EntityHuman;
 import cn.nukkit.entity.data.Skin;
 import cn.nukkit.entity.item.*;
+import cn.nukkit.entity.mob.EntityCreeper;
 import cn.nukkit.entity.projectile.EntityArrow;
 import cn.nukkit.entity.projectile.EntitySnowball;
+import cn.nukkit.entity.weather.EntityLightning;
 import cn.nukkit.event.HandlerList;
 import cn.nukkit.event.TextContainer;
 import cn.nukkit.event.TranslationContainer;
@@ -21,7 +24,6 @@ import cn.nukkit.item.enchantment.Enchantment;
 import cn.nukkit.lang.BaseLang;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.Position;
-import cn.nukkit.level.format.Chunk;
 import cn.nukkit.level.format.LevelProvider;
 import cn.nukkit.level.format.LevelProviderManager;
 import cn.nukkit.level.format.anvil.Anvil;
@@ -61,7 +63,6 @@ import cn.nukkit.potion.Effect;
 import cn.nukkit.potion.Potion;
 import cn.nukkit.scheduler.FileWriteTask;
 import cn.nukkit.scheduler.ServerScheduler;
-import cn.nukkit.tile.*;
 import cn.nukkit.utils.*;
 
 import java.io.*;
@@ -243,6 +244,7 @@ public class Server {
                 put("motd", "Nukkit Server For Minecraft: PE");
                 put("server-port", 19132);
                 put("server-ip", "0.0.0.0");
+                put("view-distance", 16);
                 put("white-list", false);
                 put("announce-player-achievements", true);
                 put("spawn-protection", 16);
@@ -343,7 +345,7 @@ public class Server {
         this.commandMap = new SimpleCommandMap(this);
 
         this.registerEntities();
-        this.registerTiles();
+        this.registerBlockEntities();
 
         InventoryType.init();
         Block.init();
@@ -380,7 +382,12 @@ public class Server {
 
         for (String name : ((Map<String, Object>) this.getConfig("worlds", new HashMap<>())).keySet()) {
             if (!this.loadLevel(name)) {
-                long seed = (long) this.getConfig("worlds." + name + ".seed", System.currentTimeMillis());
+                long seed;
+                try {
+                    seed = ((Integer) this.getConfig("worlds." + name + ".seed")).longValue();
+                } catch (Exception e) {
+                    seed = System.currentTimeMillis();
+                }
 
                 Map<String, Object> options = new HashMap<>();
                 String[] opts = ((String) this.getConfig("worlds." + name + ".generator", Generator.getGenerator("default").getSimpleName())).split(":");
@@ -409,10 +416,11 @@ public class Server {
 
             if (!this.loadLevel(defaultName)) {
                 long seed;
+                String seedString = String.valueOf(this.getProperty("level-seed", System.currentTimeMillis()));
                 try {
-                    seed = Long.valueOf((String) this.getProperty("level-seed", System.currentTimeMillis()));
+                    seed = Long.valueOf(seedString);
                 } catch (NumberFormatException e) {
-                    seed = System.currentTimeMillis();
+                    seed = seedString.hashCode();
                 }
                 this.generateLevel(defaultName, seed == 0 ? System.currentTimeMillis() : seed);
             }
@@ -948,7 +956,7 @@ public class Server {
 
         this.checkTickUpdates(this.tickCounter, tickTime);
 
-        for (Player player : this.players.values()) {
+        for (Player player : new ArrayList<>(this.players.values())) {
             player.checkNetwork();
         }
 
@@ -1096,7 +1104,17 @@ public class Server {
     }
 
     public int getViewDistance() {
-        return Math.max(56, (Integer) this.getConfig("chunk-sending.max-chunks", 256));
+        int distance = this.getPropertyInt("view-distance", 10);
+
+        if (distance < 10) {
+            distance = 10;
+        } else if (distance > 22) {
+            distance = 22;
+        }
+
+        this.setPropertyInt("view-distance", distance);
+
+        return distance;
     }
 
     public String getIp() {
@@ -1290,7 +1308,7 @@ public class Server {
     }
 
     public Map<String, Player> getOnlinePlayers() {
-        return players;
+        return new HashMap<>(players);
     }
 
     public void addRecipe(Recipe recipe) {
@@ -1582,7 +1600,7 @@ public class Server {
 
         this.getPluginManager().callEvent(new LevelLoadEvent(level));
 
-        this.getLogger().notice(this.getLanguage().translateString("nukkit.level.backgroundGeneration", name));
+        /*this.getLogger().notice(this.getLanguage().translateString("nukkit.level.backgroundGeneration", name));
 
         int centerX = (int) level.getSpawnLocation().getX() >> 4;
         int centerZ = (int) level.getSpawnLocation().getZ() >> 4;
@@ -1610,7 +1628,7 @@ public class Server {
         for (String index : order.keySet()) {
             Chunk.Entry entry = Level.getChunkXZ(index);
             level.populateChunk(entry.chunkX, entry.chunkZ, true);
-        }
+        }*/
 
         return true;
     }
@@ -1648,7 +1666,7 @@ public class Server {
     }
 
     public Object getConfig(String variable, Object defaultValue) {
-        Object value = this.config.getNested(variable);
+        Object value = this.config.get(variable);
         return value == null ? defaultValue : value;
     }
 
@@ -1797,30 +1815,36 @@ public class Server {
     }
 
     private void registerEntities() {
-        Entity.registerEntity(EntityArrow.class);
-        Entity.registerEntity(EntityItem.class);
-        Entity.registerEntity(EntityFallingBlock.class);
-        Entity.registerEntity(EntityPrimedTNT.class);
-        Entity.registerEntity(EntitySnowball.class);
-        Entity.registerEntity(EntityPainting.class);
+        Entity.registerEntity("Arrow", EntityArrow.class);
+        Entity.registerEntity("Item", EntityItem.class);
+        Entity.registerEntity("FallingSand", EntityFallingBlock.class);
+        Entity.registerEntity("PrimedTnt", EntityPrimedTNT.class);
+        Entity.registerEntity("Snowball", EntitySnowball.class);
+        Entity.registerEntity("Painting", EntityPainting.class);
         //todo mobs
+        Entity.registerEntity("Creeper", EntityCreeper.class);
 
-        Entity.registerEntity(EntityExpBottle.class);
-        Entity.registerEntity(EntityXPOrb.class);
-        Entity.registerEntity(EntityPotion.class);
+        Entity.registerEntity("ThrownExpBottle", EntityExpBottle.class);
+        Entity.registerEntity("XpOrb", EntityXPOrb.class);
+        Entity.registerEntity("ThrownPotion", EntityPotion.class);
 
-        Entity.registerEntity(EntityHuman.class, true);
+        Entity.registerEntity("Human", EntityHuman.class, true);
 
-        Entity.registerEntity(EntityMinecart.class);
+        Entity.registerEntity("MinecartRideable", EntityMinecartEmpty.class);
         // TODO: 2016/1/30 all finds of minecart
+        Entity.registerEntity("Boat", EntityBoat.class);
+
+        Entity.registerEntity("Lightning", EntityLightning.class);
     }
 
-    private void registerTiles() {
-        Tile.registerTile(Chest.class);
-        Tile.registerTile(Furnace.class);
-        Tile.registerTile(Sign.class);
-        Tile.registerTile(EnchantTable.class);
-        Tile.registerTile(BrewingStand.class);
+    private void registerBlockEntities() {
+        BlockEntity.registerBlockEntity(BlockEntity.FURNACE, BlockEntityFurnace.class);
+        BlockEntity.registerBlockEntity(BlockEntity.CHEST, BlockEntityChest.class);
+        BlockEntity.registerBlockEntity(BlockEntity.SIGN, BlockEntitySign.class);
+        BlockEntity.registerBlockEntity(BlockEntity.ENCHANT_TABLE, BlockEntityEnchantTable.class);
+        BlockEntity.registerBlockEntity(BlockEntity.SKULL, BlockEntitySkull.class);
+        BlockEntity.registerBlockEntity(BlockEntity.FLOWER_POT, BlockEntityFlowerPot.class);
+        BlockEntity.registerBlockEntity(BlockEntity.BREWING_STAND, BlockEntityBrewingStand.class);
     }
 
     public static Server getInstance() {
