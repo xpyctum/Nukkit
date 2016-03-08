@@ -311,8 +311,7 @@ public class CraftingManager {
         )).setIngredient("S", Item.get(Item.STICK, 0, 1)).setIngredient("W", Item.get(Item.WOOL, null, 1)));
 
         this.registerRecipe((new ShapedRecipe(Item.get(Item.PAPER, 0, 3),
-                "SS",
-                "S"
+                "SSS"
         )).setIngredient("S", Item.get(Item.SUGARCANE, 0, 1)));
 
         this.registerRecipe((new BigShapedRecipe(Item.get(Item.SIGN, 0, 3),
