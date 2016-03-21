@@ -89,6 +89,7 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
 
     protected SourceInterface interfaz;
 
+    public boolean playedBefore;
     public boolean spawned = false;
     public boolean loggedIn = false;
     public int gamemode;
@@ -239,7 +240,7 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
 
     @Override
     public boolean hasPlayedBefore() {
-        return this.namedTag != null;
+        return this.playedBefore;
     }
 
     public void setAllowFlight(boolean value) {
@@ -1547,6 +1548,8 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
             return;
         }
 
+        this.playedBefore = (nbt.getLong("lastPlayed") - nbt.getLong("firstPlayed")) > 1;
+
         nbt.putString("NameTag", this.username);
 
         int exp = nbt.getInt("EXP");
@@ -1910,8 +1913,7 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
                     if (!this.canInteract(blockVector.add(0.5, 0.5, 0.5), 13) || this.isSpectator()) {
                     } else if (this.isCreative()) {
                         Item i = this.inventory.getItemInHand();
-                        if ((i = this.level.useItemOn(blockVector, i, useItemPacket.face, useItemPacket.fx, useItemPacket.fy, useItemPacket.fz, this)) != null) {
-                            this.inventory.setItemInHand(i);
+                        if (this.level.useItemOn(blockVector, i, useItemPacket.face, useItemPacket.fx, useItemPacket.fy, useItemPacket.fz, this) != null) {
                             break;
                         }
                     } else if (!this.inventory.getItemInHand().deepEquals(useItemPacket.item)) {
@@ -1985,14 +1987,17 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
                             item.setCount(item.getCount() - 1);
                             this.inventory.setItemInHand(item.getCount() > 0 ? item : Item.get(Item.AIR));
                         }
-
-                        ProjectileLaunchEvent projectileLaunchEvent = new ProjectileLaunchEvent(snowball);
-                        this.server.getPluginManager().callEvent(projectileLaunchEvent);
-                        if (projectileLaunchEvent.isCancelled()) {
-                            snowball.kill();
+                        if (snowball instanceof EntityProjectile) {
+                            ProjectileLaunchEvent projectileLaunchEvent = new ProjectileLaunchEvent(snowball);
+                            this.server.getPluginManager().callEvent(projectileLaunchEvent);
+                            if (projectileLaunchEvent.isCancelled()) {
+                                snowball.kill();
+                            } else {
+                                snowball.spawnToAll();
+                                this.level.addSound(new LaunchSound(this), this.getViewers().values());
+                            }
                         } else {
                             snowball.spawnToAll();
-                            this.level.addSound(new LaunchSound(this), this.getViewers().values());
                         }
                     } else if (item.getId() == Item.EGG) {
                         CompoundTag nbt = new CompoundTag()
@@ -2019,14 +2024,17 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
                             item.setCount(item.getCount() - 1);
                             this.inventory.setItemInHand(item.getCount() > 0 ? item : Item.get(Item.AIR));
                         }
-
-                        ProjectileLaunchEvent projectileLaunchEvent = new ProjectileLaunchEvent(egg);
-                        this.server.getPluginManager().callEvent(projectileLaunchEvent);
-                        if (projectileLaunchEvent.isCancelled()) {
-                            egg.kill();
+                        if (egg instanceof EntityProjectile) {
+                            ProjectileLaunchEvent projectileLaunchEvent = new ProjectileLaunchEvent(egg);
+                            this.server.getPluginManager().callEvent(projectileLaunchEvent);
+                            if (projectileLaunchEvent.isCancelled()) {
+                                egg.kill();
+                            } else {
+                                egg.spawnToAll();
+                                this.level.addSound(new LaunchSound(this), this.getViewers().values());
+                            }
                         } else {
                             egg.spawnToAll();
-                            this.level.addSound(new LaunchSound(this), this.getViewers().values());
                         }
                     } else if (item.getId() == Item.EXPERIENCE_BOTTLE) {
                         CompoundTag nbt = new CompoundTag()
@@ -2468,7 +2476,7 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
 
                     targetEntity.attack(entityDamageByEntityEvent);
 
-                    if (ev.isCancelled()) {
+                    if (entityDamageByEntityEvent.isCancelled()) {
                         if (item.isTool() && this.isSurvival()) {
                             this.inventory.sendContents(this);
                         }
@@ -2596,7 +2604,7 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
                             if (msg.startsWith("/")) { //Command
                                 PlayerCommandPreprocessEvent commandPreprocessEvent = new PlayerCommandPreprocessEvent(this, msg);
                                 if (commandPreprocessEvent.getMessage().length() > 320) {
-                                    ev.setCancelled();
+                                    commandPreprocessEvent.setCancelled();
                                 }
                                 this.server.getPluginManager().callEvent(commandPreprocessEvent);
                                 if (commandPreprocessEvent.isCancelled()) {
